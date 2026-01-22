@@ -102,6 +102,28 @@
   <string name="snackbar_no_function_call" translatable="false">No function recognized</string>
   <string name="unknown_error" translatable="false">Unknown error</string>
 
+  <string name="file_organizer_title" translatable="false">File Organizer</string>
+  <string name="file_organizer_subtitle" translatable="false">Pick files or folders, describe how you want them organized, and approve the plan.</string>
+  <string name="file_organizer_source_title" translatable="false">Source folder</string>
+  <string name="file_organizer_source_placeholder" translatable="false">Select a folder to scan</string>
+  <string name="file_organizer_destination_title" translatable="false">Destination folder</string>
+  <string name="file_organizer_destination_placeholder" translatable="false">Select a folder to move files into</string>
+  <string name="file_organizer_prompt_label" translatable="false">Organization prompt</string>
+  <string name="file_organizer_prompt_placeholder" translatable="false">Example: Group by year and document type</string>
+  <string name="file_organizer_tree_title" translatable="false">File tree</string>
+  <string name="file_organizer_tree_empty" translatable="false">Pick a source folder to see files.</string>
+  <string name="file_organizer_generate_plan" translatable="false">Generate plan</string>
+  <string name="file_organizer_generating" translatable="false">Generating suggestions…</string>
+  <string name="file_organizer_review_suggestions" translatable="false">Review suggestions</string>
+  <string name="file_organizer_apply_changes" translatable="false">Apply approved changes</string>
+  <string name="file_organizer_apply_title" translatable="false">Apply changes</string>
+  <string name="file_organizer_apply_warning" translatable="false">Move and rename the approved files? You can’t undo this in the app.</string>
+  <string name="file_organizer_apply_confirm" translatable="false">Apply</string>
+  <string name="file_organizer_issue_title" translatable="false">Issue</string>
+  <string name="file_organizer_plan_summary" translatable="false">Plan summary: %1$d/%2$d approved</string>
+  <string name="file_organizer_folder_path_label" translatable="false">Folder path</string>
+  <string name="file_organizer_file_name_label" translatable="false">File name</string>
+
   <string name="function_name" translatable="false">Function name</string>
   <plurals name="parameter" translatable="false">
     <item quantity="one">Parameter</item>

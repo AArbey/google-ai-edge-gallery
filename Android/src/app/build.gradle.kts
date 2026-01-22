@@ -87,6 +87,7 @@ dependencies {
   implementation(libs.androidx.lifecycle.process)
   implementation(libs.androidx.security.crypto)
   implementation(libs.androidx.webkit)
+  implementation(libs.androidx.documentfile)
   implementation(libs.litertlm)
   implementation(libs.commonmark)
   implementation(libs.richtext)
