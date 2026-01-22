@@ -411,7 +411,8 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
     var movedCount = 0
     var skippedCount = 0
     approved.forEach { suggestion ->
-      val sourceDoc = DocumentFile.fromSingleUri(appContext, Uri.parse(suggestion.sourceUri))
+      val sourceUri = Uri.parse(suggestion.sourceUri)
+      val sourceDoc = DocumentFile.fromSingleUri(appContext, sourceUri)
       if (sourceDoc == null) {
         skippedCount++
         return@forEach
@@ -431,25 +432,17 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
             skippedCount++
             return@forEach
           }
-      if (targetDir.findFile(safeName) != null) {
-        skippedCount++
-        return@forEach
-      }
-      val renamed = sourceDoc.renameTo(safeName)
-      if (!renamed) {
-        skippedCount++
-        return@forEach
-      }
-      val parentUri =
-        sourceDoc.parentFile?.uri
-          ?: sourceDoc.uri.let { fallbackUri ->
-            val parentId = DocumentsContract.getDocumentId(fallbackUri).substringBeforeLast('/')
-            if (parentId.isBlank()) {
-              null
-            } else {
-              DocumentsContract.buildDocumentUriUsingTree(fallbackUri, parentId)
-            }
+      val finalName =
+        ensureUniqueName(
+          targetDir = targetDir,
+          desiredName = safeName,
+          originalName = sourceDoc.name ?: safeName,
+        )
+          ?: run {
+            skippedCount++
+            return@forEach
           }
+      val parentUri = sourceDoc.parentFile?.uri
       if (parentUri == null) {
         skippedCount++
         return@forEach
@@ -463,7 +456,17 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
             targetDir.uri,
           )
         if (moved != null) {
-          movedCount++
+          val movedDoc = DocumentFile.fromSingleUri(appContext, moved)
+          if (movedDoc != null) {
+            val renameResult = movedDoc.renameTo(finalName)
+            if (renameResult) {
+              movedCount++
+            } else {
+              skippedCount++
+            }
+          } else {
+            skippedCount++
+          }
         } else {
           skippedCount++
         }
@@ -501,6 +504,30 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
     } else {
       baseName
     }
+  }
+
+  private fun ensureUniqueName(
+    targetDir: DocumentFile,
+    desiredName: String,
+    originalName: String,
+  ): String? {
+    if (targetDir.findFile(desiredName) == null) {
+      return desiredName
+    }
+    val baseName = desiredName.substringBeforeLast('.', desiredName)
+    val extension = desiredName.substringAfterLast('.', "")
+    for (index in 2..99) {
+      val candidate =
+        if (extension.isNotEmpty()) {
+          "$baseName ($index).$extension"
+        } else {
+          "$baseName ($index)"
+        }
+      if (targetDir.findFile(candidate) == null) {
+        return candidate
+      }
+    }
+    return if (targetDir.findFile(originalName) == null) originalName else null
   }
 
   private fun ensureDirectory(root: DocumentFile, relativePath: String): DocumentFile? {
