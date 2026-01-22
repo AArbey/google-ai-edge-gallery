@@ -45,7 +45,7 @@ import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -260,7 +260,7 @@ fun FileOrganizerScreen(
       }
 
       uiState.lastPlanSummary?.let { summary ->
-        Divider(modifier = Modifier.padding(vertical = 8.dp))
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
         Text(
           text =
             stringResource(

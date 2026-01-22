@@ -44,6 +44,7 @@ import org.json.JSONObject
 
 private const val TAG = "AGFileOrganizerVM"
 private const val MAX_TREE_DEPTH = 12
+private const val MAX_UNIQUE_NAME_ATTEMPTS = 999
 
 data class FileOrganizerUiState(
   val rootUri: Uri? = null,
@@ -493,7 +494,7 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
         skippedCount++
       }
     }
-    val errorSuffix = if (lastError.isNullOrBlank()) "" else " Last error: $lastError"
+    val errorSuffix = if (lastError.isNullOrEmpty()) "" else " Last error: $lastError"
     return "Moved $movedCount file(s), skipped $skippedCount.$errorSuffix"
   }
 
@@ -545,7 +546,7 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
     }
     val baseName = desiredName.substringBeforeLast('.', desiredName)
     val extension = desiredName.substringAfterLast('.', "")
-    for (index in 2..999) {
+    for (index in 2..MAX_UNIQUE_NAME_ATTEMPTS) {
       val candidate =
         if (extension.isNotEmpty()) {
           "$baseName ($index).$extension"
@@ -570,7 +571,8 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
     }
     if (upper.startsWith("COM") || upper.startsWith("LPT")) {
       val suffix = upper.drop(3)
-      return suffix.toIntOrNull() != null
+      val numeric = suffix.toIntOrNull() ?: return false
+      return suffix.length == 1 && numeric in 1..9
     }
     return false
   }
