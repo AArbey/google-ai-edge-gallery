@@ -291,7 +291,7 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
     val entries = mutableListOf<FileEntry>()
     selectedUris.forEach { uriString ->
       val uri = Uri.parse(uriString)
-      val doc = DocumentFile.fromSingleUri(appContext, uri) ?: return@forEach
+      val doc = loadDocumentFile(uri) ?: return@forEach
       val entry = toFileEntry(rootUri, doc)
       if (entry != null) {
         entries.add(entry)
@@ -349,6 +349,11 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
       mimeType = doc.type ?: "application/octet-stream",
       sizeBytes = doc.length(),
     )
+  }
+
+  private fun loadDocumentFile(uri: Uri): DocumentFile? {
+    return DocumentFile.fromSingleUri(appContext, uri)
+      ?: DocumentFile.fromTreeUri(appContext, uri)
   }
 
   private fun getRelativePath(rootUri: Uri, childUri: Uri): String {
@@ -435,7 +440,17 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
         skippedCount++
         return@forEach
       }
-      val parentUri = sourceDoc.parentFile?.uri ?: run {
+      val parentUri =
+        sourceDoc.parentFile?.uri
+          ?: sourceDoc.uri.let { fallbackUri ->
+            val parentId = DocumentsContract.getDocumentId(fallbackUri).substringBeforeLast('/')
+            if (parentId.isBlank()) {
+              null
+            } else {
+              DocumentsContract.buildDocumentUriUsingTree(fallbackUri, parentId)
+            }
+          }
+      if (parentUri == null) {
         skippedCount++
         return@forEach
       }
@@ -478,6 +493,9 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
     }
     val originalExtension = originalName.substringAfterLast('.', "")
     val baseName = trimmed.substringBeforeLast('.', trimmed)
+    if (baseName.isBlank()) {
+      return null
+    }
     return if (originalExtension.isNotEmpty()) {
       "$baseName.$originalExtension"
     } else {
