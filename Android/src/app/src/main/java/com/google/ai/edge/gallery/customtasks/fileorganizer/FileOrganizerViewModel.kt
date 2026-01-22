@@ -45,6 +45,12 @@ import org.json.JSONObject
 private const val TAG = "AGFileOrganizerVM"
 private const val MAX_TREE_DEPTH = 12
 private const val MAX_UNIQUE_NAME_ATTEMPTS = 999
+private const val ASCII_MIN_PRINTABLE = 32
+private const val ASCII_DEL = 127
+private const val PORT_RANGE_START = 1
+private const val PORT_RANGE_END = 9
+private const val MOVE_RESULT_PREFIX = "Moved "
+private const val LAST_ERROR_SUFFIX = " Last error: "
 
 data class FileOrganizerUiState(
   val rootUri: Uri? = null,
@@ -494,8 +500,8 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
         skippedCount++
       }
     }
-    val errorSuffix = if (lastError.isNullOrEmpty()) "" else " Last error: $lastError"
-    return "Moved $movedCount file(s), skipped $skippedCount.$errorSuffix"
+    val errorSuffix = if (lastError.isNullOrEmpty()) "" else "$LAST_ERROR_SUFFIX$lastError"
+    return "$MOVE_RESULT_PREFIX$movedCount file(s), skipped $skippedCount.$errorSuffix"
   }
 
   private fun sanitizeRelativePath(path: String): String? {
@@ -561,7 +567,7 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
   }
 
   private fun isValidSegmentText(text: String): Boolean {
-    return text.none { it.code < 32 || it.code == 127 }
+    return text.none { it.code < ASCII_MIN_PRINTABLE || it.code == ASCII_DEL }
   }
 
   private fun isReservedName(name: String): Boolean {
@@ -572,7 +578,7 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
     if (upper.startsWith("COM") || upper.startsWith("LPT")) {
       val suffix = upper.drop(3)
       val numeric = suffix.toIntOrNull() ?: return false
-      return suffix.length == 1 && numeric in 1..9
+      return suffix.length == 1 && numeric in PORT_RANGE_START..PORT_RANGE_END
     }
     return false
   }
