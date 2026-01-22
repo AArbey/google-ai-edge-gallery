@@ -43,6 +43,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 private const val TAG = "AGFileOrganizerVM"
+private const val MAX_TREE_DEPTH = 12
 
 data class FileOrganizerUiState(
   val rootUri: Uri? = null,
@@ -308,7 +309,7 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
     depth: Int,
   ): FileTreeNode {
     val children =
-      if (current.isDirectory) {
+      if (current.isDirectory && depth < MAX_TREE_DEPTH) {
         current.listFiles().map { child -> buildTree(rootDoc, child, depth + 1) }
       } else {
         listOf()
@@ -324,14 +325,21 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
     )
   }
 
-  private fun buildEntriesFromDirectory(rootUri: Uri, directory: DocumentFile): List<FileEntry> {
+  private fun buildEntriesFromDirectory(
+    rootUri: Uri,
+    directory: DocumentFile,
+    depth: Int = 0,
+  ): List<FileEntry> {
     val results = mutableListOf<FileEntry>()
+    if (depth >= MAX_TREE_DEPTH) {
+      return results
+    }
     directory.listFiles().forEach { child ->
       val entry = toFileEntry(rootUri, child)
       if (entry != null) {
         results.add(entry)
       } else if (child.isDirectory) {
-        results.addAll(buildEntriesFromDirectory(rootUri, child))
+        results.addAll(buildEntriesFromDirectory(rootUri, child, depth + 1))
       }
     }
     return results
@@ -361,8 +369,8 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
     val childId = DocumentsContract.getDocumentId(childUri)
     return if (childId == rootId) {
       ""
-    } else if (childId.startsWith(rootId)) {
-      childId.removePrefix(rootId).trimStart('/')
+    } else if (childId.startsWith("$rootId/")) {
+      childId.removePrefix("$rootId/")
     } else {
       childUri.lastPathSegment.orEmpty()
     }
@@ -410,6 +418,7 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
     }
     var movedCount = 0
     var skippedCount = 0
+    var lastError: String? = null
     approved.forEach { suggestion ->
       val sourceUri = Uri.parse(suggestion.sourceUri)
       val sourceDoc = DocumentFile.fromSingleUri(appContext, sourceUri)
@@ -418,17 +427,20 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
         return@forEach
       }
       val sanitizedPath = sanitizeRelativePath(suggestion.targetRelativePath) ?: run {
+        lastError = "Invalid folder path."
         skippedCount++
         return@forEach
       }
       val targetDir = ensureDirectory(destinationDoc, sanitizedPath)
       if (targetDir == null) {
+        lastError = "Unable to create destination folder."
         skippedCount++
         return@forEach
       }
       val safeName =
         sanitizeFileName(suggestion.suggestedName, sourceDoc.name ?: suggestion.suggestedName)
           ?: run {
+            lastError = "Invalid file name."
             skippedCount++
             return@forEach
           }
@@ -439,11 +451,13 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
           originalName = sourceDoc.name ?: safeName,
         )
           ?: run {
+            lastError = "Unable to resolve a unique file name."
             skippedCount++
             return@forEach
           }
       val parentUri = sourceDoc.parentFile?.uri
       if (parentUri == null) {
+        lastError = "Unable to resolve source folder."
         skippedCount++
         return@forEach
       }
@@ -462,20 +476,25 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
             if (renameResult) {
               movedCount++
             } else {
+              lastError = "Failed to rename a moved file."
               skippedCount++
             }
           } else {
+            lastError = "Failed to access moved file."
             skippedCount++
           }
         } else {
+          lastError = "Move operation returned no result."
           skippedCount++
         }
       } catch (e: Exception) {
         Log.e(TAG, "Failed to move file", e)
+        lastError = e.message ?: "Move failed."
         skippedCount++
       }
     }
-    return "Moved $movedCount file(s), skipped $skippedCount."
+    val errorSuffix = if (lastError.isNullOrBlank()) "" else " Last error: $lastError"
+    return "Moved $movedCount file(s), skipped $skippedCount.$errorSuffix"
   }
 
   private fun sanitizeRelativePath(path: String): String? {
@@ -483,7 +502,14 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
     if (trimmed.isBlank()) {
       return ""
     }
-    if (trimmed.contains("..") || trimmed.contains("\\") || trimmed.contains(":")) {
+    if (!isValidSegmentText(trimmed)) {
+      return null
+    }
+    val segments = trimmed.split("/").filter { it.isNotBlank() }
+    if (segments.any { isReservedName(it) }) {
+      return null
+    }
+    if (segments.any { it.contains("..") || it.contains("\\") || it.contains(":") }) {
       return null
     }
     return trimmed
@@ -497,6 +523,9 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
     val originalExtension = originalName.substringAfterLast('.', "")
     val baseName = trimmed.substringBeforeLast('.', trimmed)
     if (baseName.isBlank()) {
+      return null
+    }
+    if (!isValidSegmentText(trimmed) || isReservedName(baseName)) {
       return null
     }
     return if (originalExtension.isNotEmpty()) {
@@ -516,7 +545,7 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
     }
     val baseName = desiredName.substringBeforeLast('.', desiredName)
     val extension = desiredName.substringAfterLast('.', "")
-    for (index in 2..99) {
+    for (index in 2..999) {
       val candidate =
         if (extension.isNotEmpty()) {
           "$baseName ($index).$extension"
@@ -528,6 +557,22 @@ constructor(@ApplicationContext private val appContext: Context) : ViewModel() {
       }
     }
     return if (targetDir.findFile(originalName) == null) originalName else null
+  }
+
+  private fun isValidSegmentText(text: String): Boolean {
+    return text.none { it.code < 32 || it.code == 127 }
+  }
+
+  private fun isReservedName(name: String): Boolean {
+    val upper = name.uppercase()
+    if (upper in setOf("CON", "PRN", "AUX", "NUL")) {
+      return true
+    }
+    if (upper.startsWith("COM") || upper.startsWith("LPT")) {
+      val suffix = upper.drop(3)
+      return suffix.toIntOrNull() != null
+    }
+    return false
   }
 
   private fun ensureDirectory(root: DocumentFile, relativePath: String): DocumentFile? {

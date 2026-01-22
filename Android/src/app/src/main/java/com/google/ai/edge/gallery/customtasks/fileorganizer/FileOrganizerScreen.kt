@@ -109,7 +109,10 @@ fun FileOrganizerScreen(
           android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
             android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
         )
-        viewModel.setRootUri(it, it.lastPathSegment ?: "Selected folder")
+        viewModel.setRootUri(
+          it,
+          it.lastPathSegment ?: stringResource(R.string.file_organizer_source_title),
+        )
         viewModel.loadFileTree()
       }
     }
@@ -121,7 +124,10 @@ fun FileOrganizerScreen(
           android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
             android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
         )
-        viewModel.setDestinationUri(it, it.lastPathSegment ?: "Destination folder")
+        viewModel.setDestinationUri(
+          it,
+          it.lastPathSegment ?: stringResource(R.string.file_organizer_destination_title),
+        )
       }
     }
 
@@ -414,7 +420,7 @@ private fun SuggestionCard(
       Icon(Icons.Outlined.CheckCircle, contentDescription = null)
       Spacer(modifier = Modifier.width(8.dp))
       Text(
-        text = suggestion.sourceUri.substringAfterLast('/'),
+        text = Uri.parse(suggestion.sourceUri).lastPathSegment ?: suggestion.sourceUri,
         fontWeight = FontWeight.SemiBold,
         modifier = Modifier.weight(1f),
       )
